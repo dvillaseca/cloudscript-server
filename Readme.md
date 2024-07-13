@@ -29,6 +29,7 @@ For generating typescript typings you can run:
 
 For publishing a minified version directly to playfab run:
 >cloudscript-server publish  
+
 Use a **.cloudscriptignore** file for ignoring files during the publishing process, this file is only used during the publish process, uses the same format as a .gitignore file
 
 ## Disclaimer
