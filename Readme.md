@@ -29,6 +29,7 @@ For generating typescript typings you can run:
 
 For publishing a minified version directly to playfab run:
 >cloudscript-server publish  
+Use a **.cloudscriptignore** file for ignoring files during the publishing process, this file is only used during the publish process, uses the same format as a .gitignore file
 
 ## Disclaimer
 This server should not be used in production, it will not work, the currentPlayerId is setted as a global variable, so if a new request arrive to the server while another request is processing the currentPlayerId will be changed and things will break, in fact, only one user can use this server at a time because of this.  

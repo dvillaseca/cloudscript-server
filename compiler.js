@@ -2,12 +2,14 @@ const fs = require('fs');
 const path = require('path');
 const UglifyJS = require("uglify-js");
 const ignore = require('ignore');
-function getFiles(location) {
+function getFiles(location, useIgnore) {
     let files = fs.readdirSync(location).filter(file => file.indexOf('.') != 0 && file.includes('.js') && !file.includes('.json'));
     try {
-        const ignoreFileContent = fs.readFileSync(path.join(location, '.cloudscriptignore'), 'utf8');
-        const ig = ignore().add(ignoreFileContent);
-        files = ig.filter(files);
+        if (useIgnore) {
+            const ignoreFileContent = fs.readFileSync(path.join(location, '.cloudscriptignore'), 'utf8');
+            const ig = ignore().add(ignoreFileContent);
+            files = ig.filter(files);
+        }
     }
     catch (e) {
 
@@ -32,7 +34,7 @@ let handlers = {};`
     fs.writeFileSync(path.join(__dirname, './cloudscript.js'), outFile);
 }
 module.exports.compileRelease = (location) => {
-    let files = getFiles(location);
+    let files = getFiles(location, true);
     let outFile = "";
     for (let file of files) {
         outFile += fs.readFileSync(file, 'utf-8');
