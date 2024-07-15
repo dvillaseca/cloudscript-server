@@ -24,7 +24,8 @@ function startServer() {
     compiler.compile(directory);
 
     let port = argv.p ?? argv.port ?? 8080;
-    child = spawn(process.execPath, [path.join(__dirname, 'server.js'), port, directory, '--color'], {
+    let serverType = argv._.includes('remote') ? 'server-remote.js' : 'server.js';
+    child = spawn(process.execPath, [path.join(__dirname, serverType), port, directory, '--color'], {
         detached: true,
         stdio: 'pipe'
     });
