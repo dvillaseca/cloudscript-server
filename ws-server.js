@@ -4,7 +4,6 @@ const { spawn } = require('child_process');
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs').promises;
-
 const zlib = require('zlib');
 const { promisify } = require('util');
 const gunzip = promisify(zlib.gunzip);
@@ -154,3 +153,4 @@ const wss = new ws.WebSocketServer({ port: 8040 });
 wss.on('connection', function connection(socket) {
     let client = new CloudscriptRemoteClient(socket);
 });
+console.log("websocket server started");
