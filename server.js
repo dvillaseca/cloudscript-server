@@ -155,7 +155,7 @@ global.__convertAndLogTrace = function (data) {
         let dummy = new Error("dummy");//doing this to get the stack
         compiler.transformErrorStack(dummy, directory);
         let stackLines = dummy.stack.split('\n');
-        stackLines.splice(0, 4);
+       // stackLines.splice(0, 4);
         data.Stack = stackLines.join('\n');
         console.log(JSON.stringify(data).yellow);
     }

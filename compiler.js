@@ -89,3 +89,65 @@ module.exports.transformErrorStack = (error, location) => {
         stack = stack.split('\n').filter(line => !line.includes(__dirname) && !line.includes('internal/modules/cjs/')).join('\n');
     error.stack = stack;
 }
+module.exports.transformErrorStackRemote = (error, location) => {
+
+    if (typeof error?.stack != 'string')
+        return;
+    let stack = error.stack;
+    let cloudscriptFile = findCloudscriptFilePath(stack);
+    if (cloudscriptFile == null)
+        return;
+    let pos = 0;
+    let modified = false;
+    while (true) {
+        let index = stack.indexOf(cloudscriptFile, pos);
+        if (index == -1)
+            break;
+        pos = index + 1;
+        let fileEndIndex = index + cloudscriptFile.length;
+        let nextColon = stack.indexOf(':', fileEndIndex + 1);
+        let nextLine = stack.indexOf('\n', fileEndIndex + 1);
+        let lineDefinitionEnd = Math.min(nextColon == -1 ? 100000000 : nextColon, nextLine == -1 ? 100000000 : nextLine);
+        let originalLine = getOriginalFileLine(parseInt(stack.substring(fileEndIndex + 1, lineDefinitionEnd)), location);
+        if (originalLine != null) {
+            stack = stack.slice(0, index) + originalLine + stack.slice(lineDefinitionEnd);
+            pos += originalLine.length;
+            modified = true;
+        }
+    }
+    //clear every internal file from the stack
+    if (modified) {
+        let lines = stack.split('\n');
+        let index = lines.findIndex(line => line.includes('cloudscript-remote-runner.js'));
+        if (index != -1) {
+            lines = lines.slice(0, index);
+        }
+        stack = lines.join('\n');
+        lines = lines.filter(line => !line.includes('cloudscript-server') && !line.includes('internal/modules/cjs/')).join('\n')
+    }
+    error.stack = stack;
+}
+function findCloudscriptFilePath(stack) {
+    const stackTrace = stack.split('\n');
+    for (const line of stackTrace) {
+        const match = line.match(`(\\/|\\\\)([^\\/\\\\]*cloudscript\\.[a-f0-9-]{36}\\.js)`);
+        if (!match)
+            continue;
+        const filePath = match[0];
+        let fileIndex = line.indexOf(filePath);
+        let endIndex = fileIndex + filePath.length;
+        let found = false;
+        while (fileIndex > 0) {
+            fileIndex--;
+            if (line[fileIndex] == '(') {
+                found = true;
+                fileIndex++;
+                break;
+            }
+        }
+        if (!found)
+            continue;
+        return line.substring(fileIndex, endIndex);
+    }
+    return null;
+}

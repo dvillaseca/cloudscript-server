@@ -6,7 +6,11 @@ const compiler = require('./compiler.js');
 const ws = require('ws');
 const fs = require('fs').promises;
 const path = require('path');
-let pendingResponses = {};
+const { deserializeError } = require('serialize-error');
+const zlib = require('zlib');
+const { promisify } = require('util');
+const gzip = promisify(zlib.gzip);
+let cloudscriptResponses = [];
 
 const directory = process.argv[3];
 require('dotenv').config({ path: path.join(directory, './.env') });
@@ -19,32 +23,47 @@ if (process.env['TITLE_SECRET'] == null) {
     console.log('missing environment variable TITLE_SECRET'.red);
     process.exit();
 }
+if (process.env['REMOTE_SERVER_URL'] == null) {
+    console.log('missing environment variable REMOTE_SERVER_URL'.red);
+    process.exit();
+}
+if (process.env['REMOTE_SERVER_AUTH'] == null) {
+    console.log('missing environment variable REMOTE_SERVER_AUTH'.red);
+    process.exit();
+}
+//we do this part to evaluate syntax errors in the file
+try {
+    require('./cloudscript.js');
+}
+catch (e) {
+    compiler.transformErrorStack(e, directory);
+    logError(e);
+    process.exit();
+}
 
 const titleId = process.env['TITLE_ID'];
 let wsClient = null;
 async function startCloudscript() {
-    wsClient = new ws.WebSocket('ws://127.0.0.1:8040');
+    wsClient = new ws.WebSocket(process.env['REMOTE_SERVER_URL']);
     wsClient.on('error', err => console.error(err));
     wsClient.on('message', (message) => {
         try {
-            let data = JSON.parse(message.toString());
-            switch (data.type) {
+            let msg = JSON.parse(message.toString());
+            switch (msg.type) {
                 case 'log':
-                    console.log(data.data);
+                    console.log(msg.data);
                     break;
                 case 'error':
-                    console.error(data.data);
+                    console.error(msg.data);
+                    break;
+                case 'error-log':
+                    logError(deserializeError(msg.data));
+                    break;
+                case 'playfab-log':
+                    handlePlayfabLog(msg.data);
                     break;
                 case 'response':
-                    let response = data.data;
-                    let requestId = response.requestId;
-                    if (requestId != null) {
-                        delete response.requestId;
-                        if (response.code != null)
-                            pendingResponses[requestId] = pendingResponses[requestId].status(response.code);
-                        pendingResponses[requestId].json(response);
-                        delete pendingResponses[requestId];
-                    }
+                    cloudscriptResponses.push(msg);
                     break;
                 default:
                     break;
@@ -54,24 +73,33 @@ async function startCloudscript() {
         }
     });
     wsClient.on('close', () => {
+        console.log('remote connection closed!');
         process.exit(1)
     });
     wsClient.once('open', async () => {
-        let fileData = await fs.readFile(path.join(__dirname, 'cloudscript.js'), 'utf-8');
-        wsClient.send(JSON.stringify({ type: 'create', titleId: process.env['TITLE_ID'], titleSecret: process.env['TITLE_SECRET'], data: fileData }));
+        let fileData = await fs.readFile(path.join(__dirname, 'cloudscript.js'));
+        let compressed = await gzip(fileData);
+        wsClient.send(JSON.stringify({ type: 'create', auth: process.env['REMOTE_SERVER_AUTH'], titleId: process.env['TITLE_ID'], titleSecret: process.env['TITLE_SECRET'], data: compressed.toString('base64') }));
     })
 }
 async function executeCloudScript(req, res) {
     let startTime = Date.now();
     try {
-        IS_DEV = true;
         req.body.PlayFabId = req.body.PlayFabId ?? extractPlayfabidFromToken(req.headers['x-authorization']);//doing this is faster than validating the ticket with the playfab api :P, it can fail obviously
         req.body.requestId = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
-        pendingResponses[req.body.requestId] = res;
         wsClient.send(JSON.stringify({ type: 'request', data: req.body }));
+        while (!cloudscriptResponses.some(it => it.requestId == req.body.requestId) && Date.now() - startTime < 120000)
+            await yield();
+        let index = cloudscriptResponses.findIndex(it => it.requestId == req.body.requestId);
+        if (index == -1)
+            throw new Error("timeout");
+        let response = cloudscriptResponses.splice(index)[0];
+        if (response.error)
+            throw deserializeError(response.error);
+        return res.json(response.data);
     }
     catch (e) {
-        compiler.transformErrorStack(e, directory);
+        compiler.transformErrorStackRemote(e, directory);
         logError(e);
         if (e.data?.code != null) {
             return res.status(e.data.code).json(e.data);
@@ -83,6 +111,9 @@ async function executeCloudScript(req, res) {
         }
         return res.status(500).json({ error: 'Unknown', code: 500 });
     }
+}
+async function yield() {
+    return new Promise((resolve) => setTimeout(resolve, 1));
 }
 function generateResponse(code, status, FunctionName, FunctionResult, ExecutionTimeSeconds, Error) {
     return {
@@ -163,13 +194,15 @@ async function startServer() {
 startServer();
 
 //used by the global playfab log object
-global.__convertAndLogTrace = function (data) {
+function handlePlayfabLog(data) {
     try {
-        let dummy = new Error("dummy");//doing this to get the stack
-        compiler.transformErrorStack(dummy, directory);
+        let dummy = deserializeError(data.dummyError);
+        delete data.dummyError;
         let stackLines = dummy.stack.split('\n');
         stackLines.splice(0, 4);
-        data.Stack = stackLines.join('\n');
+        dummy.stack = stackLines.join('\n');
+        compiler.transformErrorStackRemote(dummy, directory);
+        data.Stack = dummy.stack;
         console.log(JSON.stringify(data).yellow);
     }
     catch (e) {

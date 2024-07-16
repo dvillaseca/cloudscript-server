@@ -1,4 +1,5 @@
 const directory = process.argv[2];
+const { serializeError } = require('serialize-error');
 require('dotenv').config({ path: require('path').join(directory, './.env') });
 
 let serverEntityTokenExpiration = null;
@@ -29,16 +30,7 @@ function executeCloudScript(req) {
         return generateResponse(200, 'OK', req.FunctionName, result, (Date.now() - startTime) * 0.001);
     }
     catch (e) {
-        logError(e);
-        if (e.data?.code != null) {
-            return e.data;
-        }
-        if (e.stack != null) {
-            return generateResponse(200, 'OK', req.FunctionName, null, (Date.now() - startTime) * 0.001, {
-                Error: "JavascriptException", Message: "JavascriptException", StackTrace: e.stack
-            });
-        }
-        return { error: 'Unknown', code: 500 };
+        throw e;
     }
 }
 
@@ -57,6 +49,15 @@ function generateResponse(code, status, FunctionName, FunctionResult, ExecutionT
             Error
         }
     };
+}
+function processRequest(req) {
+    try {
+        let result = executeCloudScript(req);
+        process.stdout.write(JSON.stringify({ type: 'response', data: result, requestId: req.requestId }));
+    }
+    catch (e) {
+        process.stdout.write(JSON.stringify({ type: 'response', error: serializeError(e), requestId: req.requestId }));
+    }
 }
 async function setupServerEntityToken() {
     if (serverEntityTokenExpiration != null && Date.now() - serverEntityTokenExpiration > 60 * 60 * 1000) {
@@ -80,11 +81,9 @@ async function startServer() {
 //used by the global playfab log object
 global.__convertAndLogTrace = function (data) {
     try {
-        let dummy = new Error("dummy");//doing this to get the stack
-        let stackLines = dummy.stack.split('\n');
-        stackLines.splice(0, 4);
-        data.Stack = stackLines.join('\n');
-        console.log(JSON.stringify(data));
+        let dummy = new Error("dummy");//doing this to get
+        data.dummyError = serializeError(dummy);
+        process.stdout.write(JSON.stringify({ type: 'playfab-log', data }));
     }
     catch (e) {
 
@@ -92,14 +91,7 @@ global.__convertAndLogTrace = function (data) {
 }
 //custom colored error
 function logError(e) {
-    if (e.stack == null) {
-        console.error(e);
-    }
-    else {
-        if (typeof e.data == 'object')
-            console.error(JSON.stringify(e.data));
-        console.log(e.stack);
-    }
+    process.stdout.write(JSON.stringify({ type: 'error-log', data: serializeError(e) }));
 }
 //listening if monitor is still controlling the process, if not, exit
 function listenMonitor() {
@@ -110,15 +102,12 @@ function listenMonitor() {
     process.stdin.on('data', (data) => {
         try {
             let req = JSON.parse(data.toString());
-            if (req.FunctionName != null) {
-                let result = executeCloudScript(req);
-                result.requestId = req.requestId;
-              //  console.log(result);
-                process.stdout.write(JSON.stringify(result));
+            if (req.requestId != null) {
+                processRequest(req);
             }
         }
         catch (e) {
-            console.error(e);
+            //console.error(e);
         }
         if (exitTimeout != null)
             clearTimeout(exitTimeout);
