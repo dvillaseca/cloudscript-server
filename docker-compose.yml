@@ -20,4 +20,4 @@ services:
       - ./nginx-conf/nginx.conf:/etc/nginx/nginx.conf
       - ./nginx-conf/templates:/etc/nginx/templates
       - ./nginx-conf/custom-entrypoint.sh:/custom-entrypoint.sh
-    entrypoint: ["chmod +x /custom-entrypoint.sh && /custom-entrypoint.sh"]
+    entrypoint: ["/custom-entrypoint.sh"]
