@@ -53,10 +53,10 @@ function generateResponse(code, status, FunctionName, FunctionResult, ExecutionT
 function processRequest(req) {
     try {
         let result = executeCloudScript(req);
-        process.stdout.write(JSON.stringify({ type: 'response', data: result, requestId: req.requestId }));
+        process.stdout.write(JSON.stringify({ type: 'response', data: result, requestId: req.requestId }) + '\n');
     }
     catch (e) {
-        process.stdout.write(JSON.stringify({ type: 'response', error: serializeError(e), requestId: req.requestId }));
+        process.stdout.write(JSON.stringify({ type: 'response', error: serializeError(e), requestId: req.requestId }) + '\n');
     }
 }
 async function setupServerEntityToken() {
@@ -83,7 +83,7 @@ global.__convertAndLogTrace = function (data) {
     try {
         let dummy = new Error("dummy");//doing this to get
         data.dummyError = serializeError(dummy);
-        process.stdout.write(JSON.stringify({ type: 'playfab-log', data }));
+        process.stdout.write(JSON.stringify({ type: 'playfab-log', data }) + '\n');
     }
     catch (e) {
 
@@ -91,7 +91,7 @@ global.__convertAndLogTrace = function (data) {
 }
 //custom colored error
 function logError(e) {
-    process.stdout.write(JSON.stringify({ type: 'error-log', data: serializeError(e) }));
+    process.stdout.write(JSON.stringify({ type: 'error-log', data: serializeError(e) }) + '\n');
 }
 //listening if monitor is still controlling the process, if not, exit
 function listenMonitor() {

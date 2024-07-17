@@ -30,6 +30,7 @@ class CloudscriptRemoteClient {
         this.titleId = null;
         this.titleSecret = null;
         this.authenticated = false;
+        this.dataBuffer = "";
     }
     startCloudscript() {
         this.serverInstance = spawn(process.execPath, [path.join(__dirname, 'cloudscript-remote-runner.js'), this.filename, this.titleId, this.titleSecret], {
@@ -37,26 +38,34 @@ class CloudscriptRemoteClient {
             stdio: 'pipe'
         });
         this.serverInstance.stdout.on('data', data => {
-            try {
-                let response = JSON.parse(data.toString());
-                switch (response.type) {
-                    case 'response':
-                    case 'playfab-log':
-                    case 'error-log':
-                        this.socket.send(data.toString());
-                        return;
-                    default:
-                        break;
+            this.dataBuffer += data.toString();
+
+            let boundary = this.dataBuffer.indexOf('\n');
+            while (boundary !== -1) {
+                let completeMessage = this.dataBuffer.slice(0, boundary + 1);
+                this.dataBuffer = this.dataBuffer.slice(boundary + 1);
+                try {
+                    let response = JSON.parse(completeMessage);
+                    switch (response.type) {
+                        case 'response':
+                        case 'playfab-log':
+                        case 'error-log':
+                            this.socket.send(completeMessage);
+                            return;
+                        default:
+                            break;
+                    }
                 }
-            }
-            catch (e) {
+                catch (e) {
 
-            }
-            try {
-                this.socket.send(JSON.stringify({ type: 'log', data: data.toString() }));
-            }
-            catch (e) {
+                }
+                try {
+                    this.socket.send(JSON.stringify({ type: 'log', data: completeMessage }));
+                }
+                catch (e) {
 
+                }
+                boundary = this.dataBuffer.indexOf('\n');
             }
         });
         this.serverInstance.stderr.on('data', data => {
