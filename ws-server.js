@@ -7,6 +7,7 @@ const fs = require('fs').promises;
 const zlib = require('zlib');
 const { promisify } = require('util');
 const gunzip = promisify(zlib.gunzip);
+const express = require('express');
 
 function safeCompare(a, b) {
     if (typeof a !== 'string' || typeof b !== 'string') return false
@@ -22,17 +23,13 @@ class CloudscriptRemoteClient {
         this.handleMessage = this.handleMessage.bind(this);
         this.close = this.close.bind(this);
         this.ping = this.ping.bind(this);
-        this.checkAuth = this.checkAuth.bind(this);
-        this.closeIfUnauthenticated = this.closeIfUnauthenticated.bind(this);
         this.socket.on('message', this.handleMessage);
         this.socket.once('close', this.close);
         this.filename = `./cloudscript.${crypto.randomUUID().toString()}.js`;
         this.interval = null;
         this.titleId = null;
         this.titleSecret = null;
-        this.authenticated = false;
         this.dataBuffer = "";
-        this.closeIfUnauthenticatedTimeout = setTimeout(this.closeIfUnauthenticated, 120000);
     }
     startCloudscript() {
         this.serverInstance = spawn(process.execPath, [path.join(__dirname, 'cloudscript-remote-runner.js'), this.filename, this.titleId, this.titleSecret], {
@@ -87,17 +84,10 @@ class CloudscriptRemoteClient {
             let parsed = JSON.parse(message);
             switch (parsed.type) {
                 case 'request':
-                    if (!this.authenticated)
-                        return;
                     if (this.serverInstance != null)
                         this.serverInstance.stdin.write(JSON.stringify(parsed.data));
                     break;
                 case 'create':
-                    if (!this.checkAuth(parsed.auth)) {
-                        this.socket.send(JSON.stringify({ type: 'log', data: 'auth failed!' }));
-                        return this.close();
-                    }
-                    this.authenticated = true;
                     let uncompressed = await gunzip(Buffer.from(parsed.data, 'base64'));
                     await fs.writeFile(this.filename, uncompressed);
                     this.titleId = parsed.titleId;
@@ -112,37 +102,14 @@ class CloudscriptRemoteClient {
             console.error(e);
         }
     }
-    checkAuth(auth) {
-        try {
-            if (typeof auth != 'string')
-                return false;
-            return safeCompare(auth, process.env['REMOTE_SERVER_AUTH']);
-        }
-        catch (e) {
-
-        }
-        return false;
-    }
     ping() {
         if (this.serverInstance != null)
             this.serverInstance.stdin.write('1');
-    }
-    closeIfUnauthenticated() {
-        if (this.authenticated)
-            return;
-        this.close();
     }
     async close() {
         try {
             if (this.interval != null)
                 clearInterval(this.interval);
-        }
-        catch (e) {
-
-        }
-        try {
-            if (this.closeIfUnauthenticatedTimeout != null)
-                clearTimeout(this.closeIfUnauthenticatedTimeout);
         }
         catch (e) {
 
@@ -170,9 +137,22 @@ class CloudscriptRemoteClient {
         this.socket = null;
         this.serverInstance = null;
         this.interval = null;
-        this.closeIfUnauthenticatedTimeout = null;
     }
 }
 const wss = new ws.WebSocketServer({ port: 8040 });
 wss.on('connection', socket => new CloudscriptRemoteClient(socket));
 console.log("websocket server started");
+
+const app = express();
+app.get('/auth', (req, res) => {
+    const token = req?.headers?.authorization;
+    if (typeof token != 'string')
+        return res.sendStatus(401);
+    if (!safeCompare(token, process.env['REMOTE_SERVER_AUTH']))
+        return res.sendStatus(403);
+    res.sendStatus(200);
+});
+
+app.listen(3000, () => {
+    console.log('Auth server listening on port 3000');
+});

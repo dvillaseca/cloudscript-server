@@ -44,7 +44,13 @@ catch (e) {
 const titleId = process.env['TITLE_ID'];
 let wsClient = null;
 async function startCloudscript() {
-    wsClient = new ws.WebSocket(process.env['REMOTE_SERVER_URL'], { rejectUnauthorized: false });
+    const options = {
+        rejectUnauthorized: false,
+        headers: {
+            authorization: process.env['REMOTE_SERVER_AUTH']
+        }
+    };
+    wsClient = new ws.WebSocket(process.env['REMOTE_SERVER_URL'], options);
     wsClient.on('error', err => console.error(err));
     wsClient.on('message', (message) => {
         try {
