@@ -5,7 +5,7 @@ Has stack traces for Javascript and API errors
 Listens to file changes and restarts the server to reflect the latest changes
 ## Usage
 
-First install the package:  
+First, install the package globally:  
 >npm install -g cloudscript-server
 
 This service requires 2 environment variables:  
@@ -35,7 +35,7 @@ Use a **.cloudscriptignore** file for ignoring files during the publishing proce
 ## Remote Server
 
 ### Server Setup
-This package allows running a websocket server for running the cloudscript file in a remote location for faster responses if the server is located closer to the playfab servers (currently: Azure US West 2)  
+This package allows running a WebSocket server to execute the CloudScript file in a remote location for faster responses if the server is located closer to the PlayFab servers (currently: Azure US West 2).
 
 **Server configuration instructions:**  
 
@@ -51,13 +51,13 @@ This package allows running a websocket server for running the cloudscript file 
 >docker-compose build  
 >docker-compose up -d  
 
-5º Remember to open the port declared above in your server to the internet
+5º Open the port declared above on your server to the internet.
 
-This is a very complex feature and can have bugs, please if you find any report them  
-**I tried to keep it secure but due to the nature of the feature (remote code execution) do not, for any reason, run this server in any place you have sensitive data or any sensitive services**
+This is a complex feature and can have bugs. If you find any, please report them.  
+**Do not, for any reason, run this server in any place where you have sensitive data or any sensitive services due to the nature of remote code execution.**
 
 ### Conecting to the remote server
-In your cloudscript project folder add to your .env file the following variables:  
+In your CloudScript project folder, add the following variables to your .env file:  
 >REMOTE_SERVER_URL = wss//:{your_domain}:{your_port}  
 >REMOTE_SERVER_AUTH = {your_password}  
 
@@ -67,8 +67,8 @@ final run:
 
 
 ## Disclaimer
-This server should not be used in production, it will not work, the currentPlayerId is setted as a global variable, so if a new request arrive to the server while another request is processing the currentPlayerId will be changed and things will break, in fact, only one user can use this server at a time because of this.  
+This server should not be used in production. It will not work properly because the currentPlayerId is set as a global variable. If a new request arrives while another request is processing, the currentPlayerId will be changed and things will break. In fact, only one user can use this server at a time because of this limitation.
 
-Depending of your location and the amount of api request in your handler this server can be really slow due the higher latency between your location and the playfab servers (currently Quincy, Washington).  
+Depending on your location and the number of API requests in your handler, this server can be slow due to the higher latency between your location and the PlayFab servers (currently Quincy, Washington).
 
-This package is arriving a litte late, it should have been done by Playfab ages ago, but better late than never...
+This package is arriving a little late; it should have been done by PlayFab ages ago, but better late than never...
