@@ -1,5 +1,5 @@
 const axios = require('axios').default;
-const loop = require('deasync').runLoopOnce;
+const loop = require('deasync').loopWhile;
 
 module.exports.request = (url, method, contentBody, contentType, headers) => {
     __playfab_internal.httpRequestCount++;
@@ -31,9 +31,7 @@ module.exports.request = (url, method, contentBody, contentType, headers) => {
             error = e;
         });
 
-    while (error == null && response == null) {
-        loop();
-    }
+    loop(() => error == null && response == null);
     if (error != null)
         throw error;
     return response;

@@ -1,5 +1,5 @@
 
-const loop = require('deasync').runLoopOnce;
+const loop = require('deasync').loopWhile;
 const playfab = require('playfab-sdk');
 const apiMethods = require('./api-methods.json').multiplayer;
 const PlayFabApiError = require('./playfab-api-error');
@@ -25,9 +25,7 @@ function callApiMethod(request, lib, method) {
         error = err;
         response = data?.data;
     });
-    while (error == null && response == null) {
-        loop();
-    }
+    loop(() => error == null && response == null);
     if (error != null) {
         throw new PlayFabApiError(error.error, error);
     }
