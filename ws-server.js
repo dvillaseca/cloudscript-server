@@ -23,6 +23,7 @@ class CloudscriptRemoteClient {
         this.close = this.close.bind(this);
         this.ping = this.ping.bind(this);
         this.checkAuth = this.checkAuth.bind(this);
+        this.closeIfUnauthenticated = this.closeIfUnauthenticated.bind(this);
         this.socket.on('message', this.handleMessage);
         this.socket.once('close', this.close);
         this.filename = `./cloudscript.${crypto.randomUUID().toString()}.js`;
@@ -31,6 +32,7 @@ class CloudscriptRemoteClient {
         this.titleSecret = null;
         this.authenticated = false;
         this.dataBuffer = "";
+        this.closeIfUnauthenticatedTimeout = setTimeout(this.closeIfUnauthenticated, 120000);
     }
     startCloudscript() {
         this.serverInstance = spawn(process.execPath, [path.join(__dirname, 'cloudscript-remote-runner.js'), this.filename, this.titleId, this.titleSecret], {
@@ -125,10 +127,22 @@ class CloudscriptRemoteClient {
         if (this.serverInstance != null)
             this.serverInstance.stdin.write('1');
     }
+    closeIfUnauthenticated() {
+        if (this.authenticated)
+            return;
+        this.close();
+    }
     async close() {
         try {
             if (this.interval != null)
                 clearInterval(this.interval);
+        }
+        catch (e) {
+
+        }
+        try {
+            if (this.closeIfUnauthenticatedTimeout != null)
+                clearTimeout(this.closeIfUnauthenticatedTimeout);
         }
         catch (e) {
 
@@ -156,10 +170,9 @@ class CloudscriptRemoteClient {
         this.socket = null;
         this.serverInstance = null;
         this.interval = null;
+        this.closeIfUnauthenticatedTimeout = null;
     }
 }
 const wss = new ws.WebSocketServer({ port: 8040 });
-wss.on('connection', function connection(socket) {
-    let client = new CloudscriptRemoteClient(socket);
-});
+wss.on('connection', socket => new CloudscriptRemoteClient(socket));
 console.log("websocket server started");
