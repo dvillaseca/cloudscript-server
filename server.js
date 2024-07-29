@@ -33,7 +33,7 @@ async function executeCloudScript(req, res) {
     try {
         IS_DEV = true;
         currentPlayerId = req.body.PlayFabId ?? extractPlayfabidFromToken(req.headers['x-authorization']);//doing this is faster than validating the ticket with the playfab api :P, it can fail obviously
-        __playfab_internal.apiRequestCount = 0;
+        __playfab_internal.apiCallCount = 0;
         __playfab_internal.httpRequestCount = 0;
         __playfab_internal.logs = [];
 

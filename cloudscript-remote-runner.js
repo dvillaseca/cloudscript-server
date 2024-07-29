@@ -17,7 +17,7 @@ function executeCloudScript(req) {
     try {
         IS_DEV = true;
         currentPlayerId = req.PlayFabId;
-        __playfab_internal.apiRequestCount = 0;
+        __playfab_internal.apiCallCount = 0;
         __playfab_internal.httpRequestCount = 0;
         __playfab_internal.logs = [];
 
