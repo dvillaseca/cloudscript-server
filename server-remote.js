@@ -11,6 +11,7 @@ const zlib = require('zlib');
 const { promisify } = require('util');
 const gzip = promisify(zlib.gzip);
 let cloudscriptResponses = [];
+let pongTimeout = null;
 
 const directory = process.argv[3];
 require('dotenv').config({ path: path.join(directory, './.env') });
@@ -71,6 +72,11 @@ async function startCloudscript() {
                 case 'response':
                     cloudscriptResponses.push(msg);
                     break;
+                case 'pong':
+                    if (pongTimeout != null)
+                        clearTimeout(pongTimeout);
+                    pongTimeout = setTimeout(exitProgram, 60000);
+                    break;
                 default:
                     break;
             }
@@ -86,7 +92,11 @@ async function startCloudscript() {
         let fileData = await fs.readFile(path.join(__dirname, 'cloudscript.js'));
         let compressed = await gzip(fileData);
         wsClient.send(JSON.stringify({ type: 'create', auth: process.env['REMOTE_SERVER_AUTH'], titleId: process.env['TITLE_ID'], titleSecret: process.env['TITLE_SECRET'], data: compressed.toString('base64') }));
-    })
+        pongTimeout = setTimeout(exitProgram, 60000);
+        setInterval(() => {
+            wsClient.send(JSON.stringify({ type: 'ping' }));
+        }, 15000);
+    });
 }
 async function executeCloudScript(req, res) {
     let startTime = Date.now();
@@ -227,11 +237,13 @@ function logError(e) {
     }
 }
 //listening if monitor is still controlling the process, if not, exit
+
+function exitProgram() {
+    process.exit();
+}
+
 function listenMonitor() {
-    let exitTimeout = null;
-    function exitProgram() {
-        process.exit();
-    }
+    let exitTimeout = setTimeout(exitProgram, 15000);
     process.stdin.on('data', (data) => {
         if (exitTimeout != null)
             clearTimeout(exitTimeout);

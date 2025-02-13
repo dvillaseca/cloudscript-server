@@ -95,10 +95,10 @@ function logError(e) {
 }
 //listening if monitor is still controlling the process, if not, exit
 function listenMonitor() {
-    let exitTimeout = null;
     function exitProgram() {
         process.exit();
     }
+    let exitTimeout = setTimeout(exitProgram, 120000);
     process.stdin.on('data', (data) => {
         try {
             let req = JSON.parse(data.toString());

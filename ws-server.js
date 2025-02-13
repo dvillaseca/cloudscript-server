@@ -30,6 +30,7 @@ class CloudscriptRemoteClient {
         this.titleId = null;
         this.titleSecret = null;
         this.dataBuffer = "";
+        this.pingTimeout = setInterval(this.close, 60000);
     }
     startCloudscript() {
         this.serverInstance = spawn(process.execPath, [path.join(__dirname, 'cloudscript-remote-runner.js'), this.filename, this.titleId, this.titleSecret], {
@@ -94,6 +95,12 @@ class CloudscriptRemoteClient {
                     this.titleSecret = parsed.titleSecret;
                     this.startCloudscript();
                     break;
+                case 'ping':
+                    this.socket.send(JSON.stringify({ type: 'pong' }));
+                    if (this.pingTimeout != null)
+                        clearTimeout(this.pingTimeout);
+                    this.pingTimeout = setInterval(this.close, 60000);
+                    break;
                 default:
                     break;
             }
@@ -110,6 +117,13 @@ class CloudscriptRemoteClient {
         try {
             if (this.interval != null)
                 clearInterval(this.interval);
+        }
+        catch (e) {
+
+        }
+        try {
+            if (this.pingTimeout != null)
+                clearTimeout(this.pingTimeout);
         }
         catch (e) {
 
