@@ -75,7 +75,7 @@ async function startCloudscript() {
                 case 'pong':
                     if (pongTimeout != null)
                         clearTimeout(pongTimeout);
-                    pongTimeout = setTimeout(exitProgram, 60000);
+                    pongTimeout = setTimeout(exitProgram, 120000);
                     break;
                 default:
                     break;
@@ -92,7 +92,7 @@ async function startCloudscript() {
         let fileData = await fs.readFile(path.join(__dirname, 'cloudscript.js'));
         let compressed = await gzip(fileData);
         wsClient.send(JSON.stringify({ type: 'create', auth: process.env['REMOTE_SERVER_AUTH'], titleId: process.env['TITLE_ID'], titleSecret: process.env['TITLE_SECRET'], data: compressed.toString('base64') }));
-        pongTimeout = setTimeout(exitProgram, 60000);
+        pongTimeout = setTimeout(exitProgram, 120000);
         setInterval(() => {
             wsClient.send(JSON.stringify({ type: 'ping' }));
         }, 15000);
