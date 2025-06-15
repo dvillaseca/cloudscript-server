@@ -1,11 +1,11 @@
 /** Static object you add your CloudScript endpoints to */
-export var handlers: IPlayFabHandlers;
+declare var handlers: IPlayFabHandlers;
 interface IPlayFabHandlers {
   [handlerId: string]: (args?: any, context?: IPlayFabContext) => any;
 }
 
 /** The playfab id for the user who called into CloudScript */
-export var currentPlayerId: string;
+declare var currentPlayerId: string;
 
 /**
  * Static object containing cloudscript logging functions
@@ -13,7 +13,7 @@ export var currentPlayerId: string;
  * error(message: string, exc?: any): void,
  * info(message: string, exc?: any): void,
  */
-export var log: Logger;
+declare var log: Logger;
 interface Logger {
   debug(message: string, exc?: any): void;
   error(message: string, exc?: any): void;
@@ -24,7 +24,7 @@ interface Logger {
  * Static object containing cloudscript external request functions
  * request(url: string, method?: string, content?: string, contentType?: string): string
  */
-export var http: IPlayFabHttp;
+declare var http: IPlayFabHttp;
 interface IPlayFabHttp {
   request(
     url: string,
@@ -80,12 +80,12 @@ interface IApiError {
 }
 
 /** Static object which allows access to PlayFab Classic Server API calls */
-export var server: IPlayFabServerAPI;
+declare var server: IPlayFabServerAPI;
 /** Static object which allows access to PlayFab Entity API calls */
-export var entity: IPlayFabEntityAPI;
+declare var entity: IPlayFabEntityAPI;
 
 /** ServerAPI.Models as interfaces */
-export namespace PlayFabServerModels {
+declare namespace PlayFabServerModels {
   interface AdCampaignAttribution {
     /** UTC time stamp of attribution */
     AttributedAt: string;
