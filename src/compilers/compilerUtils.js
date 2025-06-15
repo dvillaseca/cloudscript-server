@@ -1,0 +1,200 @@
+const fs = require('fs');
+const path = require('path');
+const esbuild = require('esbuild');
+const ignore = require('ignore');
+
+/**
+ * Removes the IIFE (Immediately Invoked Function Expression) wrapper from the given code.
+ * Also removes (by commenting) 'require' statements and their associated variables.
+ * Additionally, unwraps the variable usage directly in the code.
+ * 
+ * Example input:
+ * (() => {
+ *   var import_playfab = require('typings/playfab/index.d.ts');
+ *   var import_node = require('typings/node/index.d.ts');
+ *   console.log(import_playfab.currentPlayerId);
+ *   require('fs');
+ * })();
+ * 
+ * Example output:
+ * /* (() => { *\/
+ * /* var import_playfab = require('typings/playfab/index.d.ts'); *\/
+ * /* var import_node = require('typings/node/index.d.ts'); *\/
+ * console.log(currentPlayerId);
+ * /* require('fs'); *\/
+ * /* })(); *\/
+ * 
+ * In summary:
+ * - Comments out the IIFE wrapper instead of removing it.
+ * - Comments out all 'require' statements.
+ * - Collects variables assigned from 'require' and removes their usage prefix (e.g. 'import_playfab.').
+ * - Keeps all lines intact to preserve line numbers for debugging.
+ * 
+ * @param {string} code - The code string to process.
+ * @returns {string} The cleaned code with commented IIFE and 'require' statements, and unwrapped variables.
+ */
+function removeIIFEWrapper(code) {
+    // Safely comment out the IIFE start
+    code = code.replace(/^\s*\(\(\s*\)\s*=>\s*{\s*$/m, match => `/* ${match} */`);
+
+    // Safely comment out the IIFE end
+    code = code.replace(/^\s*}\s*\)\(\);\s*$/m, match => `/* ${match} */`);
+
+    // Collect variables to replace
+    let variableNames = [];
+
+    // Comment require assignments like: var foo = require('...');
+    code = code.replace(/^\s*(?:const|let|var)\s+([\w$]+)\s*=\s*require\(.*\);?/gm, (match, varName) => {
+        variableNames.push(varName);
+        return `/* ${match} */`;
+    });
+
+    // Comment standalone require calls
+    code = code.replace(/^\s*require\(.*\);?/gm, match => `/* ${match} */`);
+
+    // Replace variableName. usages
+    for (let varName of variableNames) {
+        const regex = new RegExp(varName + '\\.', 'g');
+        code = code.replace(regex, '');
+    }
+
+    return code;
+}
+
+
+
+
+/**
+ * Reads and processes a JavaScript or TypeScript file. This will return a plain JS code that can be used in the cloudscript.
+ * 
+ * - If the file is a TypeScript (.ts) file, it transpiles it to JavaScript using esbuild in IIFE format,
+ *   then removes the IIFE wrapper.
+ * - Removes all import statements.
+ * - Removes all 'require' statements, both assigned and standalone.
+ * 
+ * @param {string} filePath - The path to the file to process.
+ * @returns {string} The cleaned and processed JavaScript code as a string.
+ */
+function processFile(filePath) {
+    let code = fs.readFileSync(filePath, 'utf8');
+    const ext = path.extname(filePath);
+
+
+    // If the file is a .ts file, we need to transpile it to plain JS
+    if (ext === '.ts') {
+
+        const typescriptbuild = esbuild.transformSync(code, { loader: "ts", format: "iife", "sourcemap": "external", "sourcefile": filePath });
+        code = typescriptbuild.code;
+        code = removeIIFEWrapper(code);
+        //Save the source map to a file inside "maps" folder
+        //maps folder might not exist, so we need to create it
+        if (!fs.existsSync(path.join(__dirname, "..", "..", 'maps')))
+            fs.mkdirSync(path.join(__dirname, "..", "..", 'maps'));
+        fs.writeFileSync(path.join(__dirname, "..", "..", 'maps', path.basename(filePath) + '.map'), typescriptbuild.map);
+
+        return code;
+    }
+
+    return removeImports(code);
+}
+
+
+
+
+function removeImports(code) {
+    // Strip import statements
+    code = code.replace(/^\s*import\s+[^'";]+from\s+['"][^'"]+['"];?\n?/gm, '');
+    code = code.replace(/^\s*import\s+['"][^'"]+['"];?\n?/gm, '');
+    // Strip require assignments like const foo = require('foo');
+    code = code.replace(/^\s*(const|let|var)\s+[\w\s{},]*=\s*require\(.*\);?\n?/gm, '');
+    // Strip standalone require calls
+    code = code.replace(/^\s*require\(.*\);?\n?/gm, '');
+    return code;
+}
+
+
+/**
+ * Recursively retrieves all JavaScript (.js) and TypeScript (.ts) files from the given directory,
+ * excluding files and folders based on a .cloudscriptignore file if present, or using default ignore rules.
+ *  * 
+ * @param {string} location - The root directory to start searching for files.
+ * @param {string} [defaultIgnores='\nnode_modules\ntypings\n'] - Additional default ignore patterns.
+ * @param {string} [ignoreFile='.cloudscriptignore'] - The name of the ignore file.
+ * @returns {string[]} An array of full file paths for valid JavaScript and TypeScript files.
+ */
+
+function getFiles(location, defaultIgnores = `\nnode_modules\ntypings\n`, ignoreFile = `.cloudscriptignore`) {
+    let allFiles = [];
+    let ig;
+
+    //Check if there is a .cloudscriptignore file
+    let ignoreFileContent = ``;
+    if (fs.existsSync(path.join(location, ignoreFile)))
+        ignoreFileContent = fs.readFileSync(path.join(location, ignoreFile), 'utf8');
+    ignoreFileContent += defaultIgnores;
+    if (ignoreFileContent != null && ignoreFileContent.length > 0)
+        ig = ignore().add(ignoreFileContent);
+
+    function traverseDir(dir) {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+        for (const entry of entries) {
+            const fullPath = path.join(dir, entry.name);
+            const relativePath = path.relative(location, fullPath);
+
+            if (entry.isDirectory()) {
+                if (!ig || !ig.ignores(relativePath)) {
+                    traverseDir(fullPath);
+                }
+                continue;
+            }
+
+            const ext = path.extname(entry.name);
+
+            let isIgnored = ig != null && ig.ignores(relativePath);
+            let isValidTsOrJs = ['.js', '.ts'].includes(ext);
+            if (!isIgnored && isValidTsOrJs) {
+                allFiles.push(fullPath);
+            }
+        }
+    }
+
+    traverseDir(location);
+    return allFiles;
+}
+
+
+function countLinesToRemove(filePath) {
+
+    let content = fs.readFileSync(filePath, 'utf-8');
+    let contentWithoutImports = content;
+
+    //For typescript files, we just need to remove the IIFE wrapper
+    //everything else will be mapped by esbuild
+    if (path.extname(filePath) === ".ts") {
+        content = esbuild.transformSync(content, { loader: "ts", format: "iife" }).code;
+        contentWithoutImports = removeIIFEWrapper(content);
+    }
+
+    //If the file is a .js file, we just need to remove the imports
+    if (path.extname(filePath) === ".js") {
+        contentWithoutImports = removeImports(content);
+    }
+
+    let linesOriginal = content.match(/[^\r\n]*\r?\n?/g) || [];
+    let linesWithoutImports = contentWithoutImports.match(/[^\r\n]*\r?\n?/g) || [];
+    return linesOriginal.length - linesWithoutImports.length;
+}
+
+
+
+
+
+const compilerUtils = {
+    processFile,
+    removeIIFEWrapper,
+    getFiles,
+    countLinesToRemove
+}
+
+module.exports = compilerUtils;

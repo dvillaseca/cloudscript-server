@@ -2,7 +2,8 @@
 require('colors');
 const express = require('express');
 const axios = require('axios').default;
-const compiler = require('./compiler.js');
+const compiler = require('./src/compilers/devCompiler.js');
+const { ErrorHelper } = require('./src/utils/customError.js');
 
 const directory = process.argv[3];
 require('dotenv').config({ path: require('path').join(directory, './.env') });
@@ -31,7 +32,6 @@ catch (e) {
 async function executeCloudScript(req, res) {
     let startTime = Date.now();
     try {
-        IS_DEV = true;
         currentPlayerId = req.body.PlayFabId ?? extractPlayfabidFromToken(req.headers['x-authorization']);//doing this is faster than validating the ticket with the playfab api :P, it can fail obviously
         __playfab_internal.apiCallCount = 0;
         __playfab_internal.httpRequestCount = 0;
@@ -145,7 +145,30 @@ async function startServer() {
     await setupServerEntityToken();
     let port = parseInt(process.argv[2]);
     app.listen(port);
-    console.log(("Server started at port: " + port + "\n").green);
+    console.log(("\n🚀 Server started at port: " + port.toString().bold.underline + "\n").green);
+
+    //All errors logged inside cloudscript will be modified here
+    //it will map the cloudscript.js error to the actual file and line number
+    if (cloudscript.setConsoleErrorHook != null) {
+        cloudscript.setConsoleErrorHook((...args) => {
+            if (args == null || args.length == 0)
+                return;
+            compiler.transformErrorStack(args[0], directory);
+            logError(args[0]);
+        });
+    }
+
+
+    //After the server starts, we can start the server utils internal,
+    //so we can test code without having to call the handlers externally
+    if (cloudscript.ServerUtilsInternal != null && cloudscript.ServerUtilsInternal.startServer != null) {
+        await sleep(10);
+        cloudscript.ServerUtilsInternal.startServer();
+    }
+}
+
+let sleep = async (ms) => {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 startServer();
 
@@ -155,7 +178,7 @@ global.__convertAndLogTrace = function (data) {
         let dummy = new Error("dummy");//doing this to get the stack
         compiler.transformErrorStack(dummy, directory);
         let stackLines = dummy.stack.split('\n');
-       // stackLines.splice(0, 4);
+        // stackLines.splice(0, 4);
         data.Stack = stackLines.join('\n');
         console.log(JSON.stringify(data).yellow);
     }
@@ -165,14 +188,7 @@ global.__convertAndLogTrace = function (data) {
 }
 //custom colored error
 function logError(e) {
-    if (e.stack == null) {
-        console.error(e);
-    }
-    else {
-        if (typeof e.data == 'object')
-            console.error(JSON.stringify(e.data).red);
-        console.log(e.stack.red);
-    }
+    console.error(`❌ ` + ErrorHelper.formatWithStackHeavy(e));
 }
 //listening if monitor is still controlling the process, if not, exit
 function listenMonitor() {
