@@ -135,8 +135,8 @@ function getOriginalFileLine(lineIndex, location) {
 
         //Now get how many lines were removed from the file, when we compiled it
         //Find all the lines in the file that starts with 
-        let removedLines = compilerUtils.countLinesToRemove(file);
-        let lineDiff = lineIndex - markerPosition + removedLines;
+        // let removedLines = compilerUtils.countLinesToRemove(file);
+        let lineDiff = lineIndex - markerPosition;
 
         // console.log(`${file}: ${removedLines} = ${lineDiff}`);
 
@@ -148,7 +148,7 @@ function getOriginalFileLine(lineIndex, location) {
 
             const consumer = new SourceMapConsumer(rawMap);
             const pos = consumer.originalPositionFor({
-                line: lineIndex - markerPosition,//<---- we didn't remove any lines in ts, we comment them
+                line: lineDiff,
                 column: 0
             });
             consumer.destroy();

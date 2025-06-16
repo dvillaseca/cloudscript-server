@@ -102,13 +102,21 @@ function processFile(filePath) {
 
 
 function removeImports(code) {
-    // Strip import statements
-    code = code.replace(/^\s*import\s+[^'";]+from\s+['"][^'"]+['"];?\n?/gm, '');
-    code = code.replace(/^\s*import\s+['"][^'"]+['"];?\n?/gm, '');
-    // Strip require assignments like const foo = require('foo');
-    code = code.replace(/^\s*(const|let|var)\s+[\w\s{},]*=\s*require\(.*\);?\n?/gm, '');
-    // Strip standalone require calls
-    code = code.replace(/^\s*require\(.*\);?\n?/gm, '');
+    // Match multiline imports
+    code = code.replace(/(^|\n)(\s*import[\s\S]*?from\s+['"][^'"]+['"]\s*;?)/g, (match, prefix, statement) => {
+        return `${prefix}/*${statement} */`;
+    });
+
+    // Match multiline requires
+    code = code.replace(/(^|\n)(\s*(const|let|var)[\s\S]*?=\s*require\(.*?\)\s*;?)/g, (match, prefix, statement) => {
+        return `${prefix}/*${statement} */`;
+    });
+
+    // Match standalone requires
+    code = code.replace(/(^|\n)(\s*require\(.*?\)\s*;?)/g, (match, prefix, statement) => {
+        return `${prefix}/*${statement} */`;
+    });
+
     return code;
 }
 
@@ -164,28 +172,6 @@ function getFiles(location, defaultIgnores = `\nnode_modules\ntypings\n`, ignore
 }
 
 
-function countLinesToRemove(filePath) {
-
-    let content = fs.readFileSync(filePath, 'utf-8');
-    let contentWithoutImports = content;
-
-    //For typescript files, we just need to remove the IIFE wrapper
-    //everything else will be mapped by esbuild
-    if (path.extname(filePath) === ".ts") {
-        content = esbuild.transformSync(content, { loader: "ts", format: "iife" }).code;
-        contentWithoutImports = removeIIFEWrapper(content);
-    }
-
-    //If the file is a .js file, we just need to remove the imports
-    if (path.extname(filePath) === ".js") {
-        contentWithoutImports = removeImports(content);
-    }
-
-    let linesOriginal = content.match(/[^\r\n]*\r?\n?/g) || [];
-    let linesWithoutImports = contentWithoutImports.match(/[^\r\n]*\r?\n?/g) || [];
-    return linesOriginal.length - linesWithoutImports.length;
-}
-
 
 
 
@@ -193,8 +179,7 @@ function countLinesToRemove(filePath) {
 const compilerUtils = {
     processFile,
     removeIIFEWrapper,
-    getFiles,
-    countLinesToRemove
+    getFiles
 }
 
 module.exports = compilerUtils;
