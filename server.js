@@ -1,9 +1,11 @@
 
 require('colors');
+const minimist = require('minimist');
 const express = require('express');
 const axios = require('axios').default;
 const compiler = require('./src/compilers/devCompiler.js');
-const { ErrorHelper } = require('./src/utils/customError.js');
+const { ErrorHelper, CustomError } = require('./src/utils/customError.js');
+const { colorJSONStringify, formatDateSimple } = require('./src/utils/utils.js');
 
 const directory = process.argv[3];
 require('dotenv').config({ path: require('path').join(directory, './.env') });
@@ -29,23 +31,51 @@ catch (e) {
     logError(e);
     process.exit();
 }
+
+let verbose = minimist(process.argv).verbose;
+const DIVIDER = '----------------------------------------------';
+function logRequest(req) {
+    if (!verbose)
+        return;
+    let text = `\n${DIVIDER}\n`;
+    text += `\n[${formatDateSimple(new Date()).dim
+        }]  ${req.body.FunctionName.italic.blue} \n`;
+    text += `\n${colorJSONStringify(req.body.FunctionParameter)} \n`;
+    console.log(text);
+}
+function logResponse(req, result, elapsedTime) {
+    if (!verbose)
+        return;
+    let text = `\n${DIVIDER} \n`;
+    text += `\n[${formatDateSimple(new Date()).dim}]  ${req.body.FunctionName.italic.blue} (${elapsedTime.toFixed(2)}ms) \n`;
+    text += `\n${colorJSONStringify(result)} \n`;
+    console.log(text);
+}
+
+
+
 async function executeCloudScript(req, res) {
     let startTime = Date.now();
     try {
+        logRequest(req)
         currentPlayerId = req.body.PlayFabId ?? extractPlayfabidFromToken(req.headers['x-authorization']);//doing this is faster than validating the ticket with the playfab api :P, it can fail obviously
         __playfab_internal.apiCallCount = 0;
         __playfab_internal.httpRequestCount = 0;
         __playfab_internal.logs = [];
 
-        if (cloudscript[req.body.FunctionName] == null)
+        if (cloudscript.handlers[req.body.FunctionName] == null) {
+            if (verbose) logError(new CustomError(`No function named ${req.body.FunctionName} was found to execute`, `CloudScriptNotFound`));
             return res.json(generateResponse(200, 'OK', req.body.FunctionName, null, (Date.now() - startTime) * 0.001, {
                 Error: "CloudScriptNotFound", Message: `No function named ${req.body.FunctionName} was found to execute`, StackTrace: ""
             }));
+        }
 
-        let result = cloudscript[req.body.FunctionName](req.body.FunctionParameter, { playerProfile: null, playStreamEvent: null, triggeredByTask: null });
+        let result = cloudscript.handlers[req.body.FunctionName](req.body.FunctionParameter, { playerProfile: null, playStreamEvent: null, triggeredByTask: null });
+        logResponse(req, result, (Date.now() - startTime))
         return res.json(generateResponse(200, 'OK', req.body.FunctionName, result, (Date.now() - startTime) * 0.001));
     }
     catch (e) {
+        console.log(e)
         compiler.transformErrorStack(e, directory);
         logError(e);
         if (e.data?.code != null) {
@@ -155,6 +185,19 @@ async function startServer() {
                 return;
             compiler.transformErrorStack(args[0], directory);
             logError(args[0]);
+        });
+    }
+
+    if (cloudscript.setConsoleLogHook != null) {
+        cloudscript.setConsoleLogHook((...args) => {
+            if (args == null || args.length == 0)
+                return;
+
+            console.log(...args.map(el => {
+                if (typeof el == 'object')
+                    return colorJSONStringify(el);
+                return el;
+            }));
         });
     }
 

@@ -35,6 +35,9 @@ function setConsoleErrorHook(customErrorHook) {
     console.error = (...args) => customErrorHook(...args);
 }
 
+function setConsoleLogHook(customLogHook) {
+    console.log = (...args) => customLogHook(...args);
+}
 `;
     let replaceLogErrorBack = ``;
 
@@ -61,9 +64,9 @@ let handlers = {};\n`
     outFile += `IS_DEVELOPMENT=true;\n`;
     outFile += `${replaceLogErrorBack}\n`;
     if (serverUtilsIndex != -1)
-        outFile += 'module.exports = {handlers,ServerUtilsInternal,setConsoleErrorHook};\n';
+        outFile += 'module.exports = {handlers,ServerUtilsInternal,setConsoleErrorHook,setConsoleLogHook};\n';
     else
-        outFile += 'module.exports = {handlers,setConsoleErrorHook};\n';
+        outFile += 'module.exports = {handlers,setConsoleErrorHook,setConsoleLogHook};\n ';
 
     fs.writeFileSync(path.join(__dirname, "..", "..", './cloudscript.js'), outFile);
 }
