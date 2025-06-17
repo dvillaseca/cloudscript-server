@@ -1,6 +1,9 @@
 require('colors');
+const argv = require('minimist')(process.argv.slice(2));
 const playfab = require('playfab-sdk');
 const releaseCompiler = require('./src/compilers/releaseCompiler.js');
+const fs = require('fs');
+const path = require('path');
 function UpdateCloudscript(args) {
     return new Promise((resolve, reject) => {
         playfab.PlayFabAdmin.UpdateCloudScript(args, (err, res) => {
@@ -12,8 +15,10 @@ function UpdateCloudscript(args) {
 }
 module.exports = async (directory) => {
     require('dotenv').config({ path: require('path').join(directory, './.env') });
-    playfab.settings.titleId = process.env['TITLE_ID'];
-    playfab.settings.developerSecretKey = process.env['TITLE_SECRET'];
+    if (!argv.local) {
+        playfab.settings.titleId = process.env['TITLE_ID'];
+        playfab.settings.developerSecretKey = process.env['TITLE_SECRET'];
+    }
     console.log("⚙️  Compiling...".blue);
     let minified = releaseCompiler.compile(directory);
 
@@ -32,6 +37,13 @@ module.exports = async (directory) => {
     catch (e) {
         console.error(e);
     }
+
+    if (argv.local) {
+        fs.writeFileSync(path.join(__dirname, 'cloudscript.min.js'), minified);
+        console.log(`✅ Created minified file, run with --minified to use it`.green);
+        return;
+    }
+
     console.log("📤 Publishing...".blue);
     let response = await UpdateCloudscript({
         Files: [{
