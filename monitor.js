@@ -30,7 +30,8 @@ function startServer() {
     }
 
     try {
-        typesGenerator(directory);
+        if (argv['auto-generate-types'] || argv['autogenerate-types'])
+            typesGenerator(directory);
     } catch (err) {
         console.error("❌ Failed to generate typings:\n".red, err);
         return;
