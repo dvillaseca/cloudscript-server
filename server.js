@@ -9,6 +9,8 @@ const { colorJSONStringify, formatDateSimple } = require('./src/utils/utils.js')
 
 const directory = process.argv[3];
 require('dotenv').config({ path: require('path').join(directory, './.env') });
+const argv = require('minimist')(process.argv.slice(2));
+let minified = argv.minify;
 
 if (process.env['TITLE_ID'] == null) {
     console.log('missing environment variable TITLE_ID'.red);
@@ -24,7 +26,7 @@ let serverEntityTokenExpiration = null;
 
 let cloudscript = null;
 try {
-    cloudscript = require('./cloudscript.js');
+    cloudscript = require(minified ? './cloudscript.min.js' : './cloudscript.js');
 }
 catch (e) {
     compiler.transformErrorStack(e, directory);

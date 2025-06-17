@@ -1,5 +1,6 @@
 const argv = require('minimist')(process.argv.slice(2));
 const compiler = require('./src/compilers/devCompiler.js');
+const minifiedCompiler = require('./src/compilers/localReleaseCompiler.js');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const path = require('path');
@@ -23,7 +24,9 @@ function startServer() {
     stopServer();
 
     try {
-        compiler.compile(directory);
+        console.log("⚙️  Compiling...".blue);
+        if (argv.minify) minifiedCompiler.compile(directory);
+        else compiler.compile(directory);
     } catch (err) {
         console.error("❌ Failed to compile:\n".red, err);
         return; // do not restart server if compilation failed
@@ -40,9 +43,8 @@ function startServer() {
     let port = argv.p ?? argv.port ?? 8080;
     let serverType = argv._.includes('remote') ? 'server-remote.js' : 'server.js';
     let args = [path.join(__dirname, serverType), port, directory, '--color'];
-    if (argv.verbose)
-        args.push('--verbose');
-
+    if (argv.verbose) args.push('--verbose');
+    if (argv.minify) args.push('--minify');
     child = spawn(process.execPath, args, {
         detached: true,
         stdio: 'pipe'
