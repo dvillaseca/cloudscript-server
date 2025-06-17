@@ -20,8 +20,9 @@ module.exports = async (directory) => {
         playfab.settings.developerSecretKey = process.env['TITLE_SECRET'];
     }
     console.log("⚙️  Compiling...".blue);
+    const startTime = Date.now();
     let minified = releaseCompiler.compile(directory);
-
+    console.log(`✔️  Compiled in ${Date.now() - startTime}ms`.blue);
     try {
         let commitComment = ``;
         if (process.env['GIT_COMMIT_HASH'] != null)

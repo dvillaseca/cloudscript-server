@@ -6,6 +6,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const chokidar = require('chokidar');
 const typesGenerator = require('./typesGenerator.js');
+const compilerUtils = require('./src/compilers/compilerUtils.js');
 require('colors');
 let timeout = null;
 let child = null;
@@ -23,18 +24,33 @@ function startServer() {
 
     stopServer();
 
+
+    if (argv["clear-cache"] || argv.clearCache) {
+        try {
+            typesGenerator.clearCache();
+            compilerUtils.clearCache();
+            console.log("🧹 Cache cleared\n".yellow);
+        } catch (error) {
+            console.error("❌ Failed to clear cache:\n".red, error);
+        }
+    }
+
     try {
         console.log("⚙️  Compiling...".blue);
+        const startTime = Date.now();
         if (argv.minify) minifiedCompiler.compile(directory);
         else compiler.compile(directory);
+        console.log(`✔️  Compiled in ${Date.now() - startTime}ms`.blue);
     } catch (err) {
         console.error("❌ Failed to compile:\n".red, err);
         return; // do not restart server if compilation failed
     }
 
     try {
-        if (argv['auto-generate-types'] || argv['autogenerate-types'])
-            typesGenerator(directory);
+        if (argv['auto-generate-typings'] || argv['autogenerate-typings']) {
+            console.log();
+            typesGenerator.generateTypings(directory);
+        }
     } catch (err) {
         console.error("❌ Failed to generate typings:\n".red, err);
         return;
@@ -66,13 +82,21 @@ async function main() {
         directory = process.cwd();
     }
 
+
+    if (argv._.includes("clear-cache")) {
+        typesGenerator.clearCache();
+        compilerUtils.clearCache();
+        console.log("🧹 Cache cleared".green);
+        return;
+    }
+
     if (argv._.includes("init")) {
         require('./src/projectInitializer/initializeProject.js')(directory);
         return;
     }
 
-    if (argv._.includes(`typesgenerator`)) {
-        require('./typesGenerator.js')(directory);
+    if (argv._.includes(`generate-typings`)) {
+        require('./typesGenerator.js').generateTypings(directory);
         return;
     }
 

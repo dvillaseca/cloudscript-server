@@ -4,6 +4,11 @@ const path = require('path');
 const crypto = require('crypto');
 const compilerUtils = require('./src/compilers/compilerUtils');
 
+function clearCache() {
+    fs.rmSync(path.join(__dirname, 'typings-cache'), { recursive: true });
+    fs.mkdirSync(path.join(__dirname, 'typings-cache'), { recursive: true });
+}
+
 function hashDirectory(directory) {
     return crypto.createHash('md5').update(directory).digest('hex');
 }
@@ -27,7 +32,8 @@ function saveCache(cache, cachePath) {
 }
 
 function generateTypings(directory) {
-    console.log('Generating typings...'.italic.dim);
+    console.log('🔠  Generating typings...'.blue);
+    const startTime = Date.now();
     let files = compilerUtils.getFiles(directory, `\nnode_modules\ntypings\n`, '.dtsignore');
     files = files.filter(file => file.includes('.js'));
 
@@ -51,7 +57,6 @@ function generateTypings(directory) {
     } else {
         console.log(`Generating typings for ${filesToProcess.length} changed files...`.yellow);
         generateTypingsBatch(filesToProcess, directory);
-        console.log('Typings generated'.blue);
     }
 
     saveCache(cache, cachePath);
@@ -71,6 +76,7 @@ function generateTypings(directory) {
     } catch (e) {
         console.error(e);
     }
+    console.log(`✔️  Typings generated in ${Date.now() - startTime}ms`.blue);
 }
 
 function generateTypingsBatch(files, mainDir) {
@@ -117,4 +123,4 @@ function generateTypingsBatch(files, mainDir) {
     }
 }
 
-module.exports = generateTypings;
+module.exports = { generateTypings, clearCache };

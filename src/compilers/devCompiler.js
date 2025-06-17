@@ -2,6 +2,7 @@ const compilerUtils = require('./compilerUtils');
 const fs = require('fs');
 const path = require('path');
 const { SourceMapConsumer } = require('@jridgewell/source-map');
+require('colors');
 
 
 /**
@@ -54,10 +55,12 @@ let handlers = {};\n`
 
     outFile += replaceLogError + '\n';
 
-
+    let compilationCache = null;
     for (let file of files) {
         let content = "\n" + getMarker(file) + '\n';
-        content += compilerUtils.processFile(file, path.extname(file));
+        let { code, cache } = compilerUtils.processFileWithCache(file, location, compilationCache);
+        compilationCache = cache;
+        content += code;
         outFile += content;
         outFile += '\n';
     }
