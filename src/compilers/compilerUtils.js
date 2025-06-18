@@ -41,20 +41,9 @@ function saveCache(cache, cachePath) {
     fs.writeFileSync(cachePath, JSON.stringify(cache, null, 2));
 }
 
-function processFileWithCache(filePath, rootDirectory, loadedCache = null) {
+function processFileWithCache(filePath, rootDirectory, cacheToUse) {
 
-    let cache = null;
-    let cachePath = null;
-
-    if (loadedCache != null) {
-        cache = loadedCache;
-        cachePath = path.join(CACHE_DIR, `${hashDirectory(rootDirectory)}.cache.json`);
-    } else {
-        let { cache: c, path: cpath } = loadCache(rootDirectory);
-        cache = c;
-        cachePath = cpath;
-    }
-
+    let { cache, path: cachePath } = cacheToUse;
     const relativePath = path.relative(rootDirectory, filePath).replace(/\\/g, '/');
     const stats = fs.statSync(filePath);
     const mtime = stats.mtimeMs;
@@ -86,9 +75,7 @@ function processFileWithCache(filePath, rootDirectory, loadedCache = null) {
         outputFile
     };
 
-    saveCache(cache, cachePath);
-
-    return { code: processedCode, cache };
+    return processedCode;
 }
 
 
@@ -265,7 +252,11 @@ function getFiles(location, defaultIgnores = `\nnode_modules\ntypings\n`, ignore
 
 
 
-
+const fileProcessorCache = {
+    loadCache,
+    saveCache,
+    clearCache
+}
 
 
 const compilerUtils = {
@@ -273,7 +264,8 @@ const compilerUtils = {
     processFileWithCache,
     removeIIFEWrapper,
     getFiles,
-    clearCache
+    clearCache,
+    fileProcessorCache
 }
 
 module.exports = compilerUtils;

@@ -55,15 +55,15 @@ let handlers = {};\n`
 
     outFile += replaceLogError + '\n';
 
-    let compilationCache = null;
+    let compilationCache = compilerUtils.fileProcessorCache.loadCache(location);
+
     for (let file of files) {
         let content = "\n" + getMarker(file) + '\n';
-        let { code, cache } = compilerUtils.processFileWithCache(file, location, compilationCache);
-        compilationCache = cache;
-        content += code;
+        content += compilerUtils.processFileWithCache(file, location, compilationCache);
         outFile += content;
         outFile += '\n';
     }
+    compilerUtils.fileProcessorCache.saveCache(compilationCache.cache, compilationCache.path);
     outFile += `IS_DEVELOPMENT=true;\n`;
     outFile += `${replaceLogErrorBack}\n`;
     if (serverUtilsIndex != -1)
