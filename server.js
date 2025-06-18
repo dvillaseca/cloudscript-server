@@ -35,9 +35,18 @@ catch (e) {
 }
 
 let verbose = minimist(process.argv).verbose;
+
+let verboseIgnore = [];
+try {
+    if (argv.verboseignore != null && argv.verboseignore.length > 0) {
+        verboseIgnore = argv.verboseignore.split(',').map(item => item.trim());
+    }
+} catch {
+
+}
 const DIVIDER = '----------------------------------------------';
 function logRequest(req) {
-    if (!verbose)
+    if (!verbose || verboseIgnore.includes(req.body.FunctionName))
         return;
     let text = `\n${DIVIDER}\n`;
     text += `\n[${formatDateSimple(new Date()).dim
@@ -46,7 +55,7 @@ function logRequest(req) {
     console.log(text);
 }
 function logResponse(req, result, elapsedTime) {
-    if (!verbose)
+    if (!verbose || verboseIgnore.includes(req.body.FunctionName))
         return;
     let text = `\n${DIVIDER} \n`;
     text += `\n[${formatDateSimple(new Date()).dim}]  ${req.body.FunctionName.italic.blue} (${elapsedTime.toFixed(2)}ms) \n`;
