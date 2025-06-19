@@ -217,8 +217,45 @@ async function startServer() {
     //so we can test code without having to call the handlers externally
     if (cloudscript.ServerUtilsInternal != null && cloudscript.ServerUtilsInternal.startServer != null) {
         await sleep(10);
-        cloudscript.ServerUtilsInternal.startServer();
+        let args = convertToServerStartArgs(argv);
+        cloudscript.ServerUtilsInternal.startServer(args);
     }
+}
+
+/**
+ * 
+ * @param {Object} argv 
+ * @returns {Record<string, string | boolean | number>}
+ */
+function convertToServerStartArgs(argv) {
+
+    /**
+     * @type {Record<string, string | boolean | number>}
+     */
+    let result = {};
+
+    for (let key in argv) {
+        let value = argv[key];
+
+        if (typeof value == 'object')
+            continue;
+        if (value == null || typeof value == 'string' && value.length == 0) {
+            continue;
+        }
+
+        if (typeof value == `string`) {
+            //try to conver to boolean
+            if (value.toLowerCase() === 'true') value = true;
+            else if (value.toLowerCase() === 'false') value = false;
+
+            //try to conver to number
+            let num = parseFloat(value);
+            if (!isNaN(num)) value = num;
+        }
+        result[key] = value;
+    }
+
+    return result;
 }
 
 let sleep = async (ms) => {

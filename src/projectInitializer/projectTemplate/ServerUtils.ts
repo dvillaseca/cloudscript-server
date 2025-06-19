@@ -1,8 +1,10 @@
 export namespace ServerUtils {
-  export function onServerStart(action: Function) {
-    let finalAction = () => {
+  export type ServerStartArgs = Record<string, string | boolean | number>;
+  export type ServerStartAction = (args: ServerStartArgs) => void;
+  export function onServerStart(action: ServerStartAction) {
+    let finalAction = (args: ServerStartArgs) => {
       try {
-        action();
+        action(args);
       } catch (e) {
         console.error(e);
       }
@@ -12,9 +14,9 @@ export namespace ServerUtils {
 }
 
 namespace ServerUtilsInternal {
-  export const onServerStartActions: Function[] = [];
+  export const onServerStartActions: ServerUtils.ServerStartAction[] = [];
 
-  export function startServer() {
-    onServerStartActions.forEach((action) => action());
+  export function startServer(args: ServerUtils.ServerStartArgs) {
+    onServerStartActions.forEach((action) => action(args ?? {}));
   }
 }

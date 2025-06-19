@@ -59,11 +59,14 @@ function startServer() {
     let port = argv.p ?? argv.port ?? 8080;
     let serverType = argv._.includes('remote') ? 'server-remote.js' : 'server.js';
     let args = [path.join(__dirname, serverType), port, directory, '--color'];
-    if (argv.verbose) {
-        args.push('--verbose');
-        let verboseIgnore = [];
-        try {
 
+    for (let key of Object.keys(argv)) {
+        if (key == '_') continue;
+        args.push(`--${key}`, argv[key]);
+    }
+
+    if (argv.verbose) {
+        try {
             let verboseIgnore = path.join(directory, '.verboseignore');
             let verboseIgnoreContent = fs.readFileSync(verboseIgnore, 'utf8');
             verboseIgnore = verboseIgnoreContent.split('\n').map(line => line.trim()).filter(line => line.length > 0);
@@ -72,7 +75,6 @@ function startServer() {
 
         }
     }
-    if (argv.minify) args.push('--minify');
     child = spawn(process.execPath, args, {
         detached: true,
         stdio: 'pipe'
