@@ -16,6 +16,7 @@ const SELF_FILE = __filename;
 const SELF_MTIME = fs.statSync(SELF_FILE).mtimeMs;
 
 function clearCache() {
+    if (!fs.existsSync(CACHE_DIR)) return;
     fs.rmSync(CACHE_DIR, { recursive: true });
     fs.mkdirSync(CACHE_DIR, { recursive: true });
     fs.mkdirSync(path.join(CACHE_DIR, "files"), { recursive: true });

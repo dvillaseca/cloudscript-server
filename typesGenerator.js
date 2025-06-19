@@ -5,6 +5,8 @@ const crypto = require('crypto');
 const compilerUtils = require('./src/compilers/compilerUtils');
 
 function clearCache() {
+    if (!fs.existsSync(path.join(__dirname, 'typings-cache')))
+        return;
     fs.rmSync(path.join(__dirname, 'typings-cache'), { recursive: true });
     fs.mkdirSync(path.join(__dirname, 'typings-cache'), { recursive: true });
 }
