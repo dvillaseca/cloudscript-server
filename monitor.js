@@ -1,5 +1,7 @@
 const argv = require('minimist')(process.argv.slice(2));
 const compiler = require('./src/compilers/devCompiler.js');
+const remoteCompiler = require('./compiler.js');
+
 const minifiedCompiler = require('./src/compilers/localReleaseCompiler.js');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -38,8 +40,16 @@ function startServer() {
     try {
         console.log("⚙️  Compiling...".blue);
         const startTime = Date.now();
+
+        if (argv._.includes('remote')){
+            remoteCompiler.compile(directory);
+        }else{
         if (argv.minify) minifiedCompiler.compile(directory);
         else compiler.compile(directory);
+        }
+
+
+        
         console.log(`✔️  Compiled in ${Date.now() - startTime}ms`.blue);
     } catch (err) {
         console.error("❌ Failed to compile:\n".red, err);
