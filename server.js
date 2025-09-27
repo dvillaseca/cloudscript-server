@@ -6,6 +6,7 @@ const axios = require('axios').default;
 const compiler = require('./src/compilers/devCompiler.js');
 const { ErrorHelper, CustomError } = require('./src/utils/customError.js');
 const { colorJSONStringify, formatDateSimple } = require('./src/utils/utils.js');
+const playfabHttpProxy = require('./cloudscript-libs/playfab-http-proxy.js');
 
 const directory = process.argv[3];
 require('dotenv').config({ path: require('path').join(directory, './.env') });
@@ -22,6 +23,12 @@ if (process.env['TITLE_SECRET'] == null) {
 }
 
 const titleId = process.env['TITLE_ID'];
+const productionUrl = process.env['PLAYFAB_PRODUCTION_URL'];
+const verticalName = process.env['PLAYFAB_VERTICAL_NAME'];
+const playfabPort = process.env['PLAYFAB_PORT'];
+
+
+
 let serverEntityTokenExpiration = null;
 
 let cloudscript = null;
@@ -136,7 +143,15 @@ app.post('/Server/ExecuteCloudScript', executeCloudScript);
 app.use('*', async (req, res) => {
     try {
         let route = req.params[0];
-        let url = `https://${titleId}.playfabapi.com${route}`;
+        let baseUrl = playfabHttpProxy.getPlayfabUrl({
+            productionUrl:productionUrl,
+            titleId:titleId,
+            verticalName:verticalName,
+            port:playfabPort,
+        })
+
+        let url = `${baseUrl}${route}`; 
+
         let headers = {};
         for (let key in req.headers) {
             if (key == 'host')
@@ -181,8 +196,22 @@ async function setupServerEntityToken() {
 
 async function startServer() {
     let playfab = require('playfab-sdk');
+    playfabHttpProxy.patchPlayfabMakeRequest();
     playfab.settings.titleId = process.env['TITLE_ID'];
     playfab.settings.developerSecretKey = process.env['TITLE_SECRET'];
+    
+     if (productionUrl != null) {
+         playfab.settings.productionUrl = productionUrl;
+     }   
+
+     if (playfabPort != null) {
+         playfab.settings.port = parseInt(playfabPort);
+     }
+
+     if (verticalName != null) {
+         playfab.settings.verticalName = verticalName;
+     }       
+
     await setupServerEntityToken();
     let port = parseInt(process.argv[2]);
     app.listen(port);
