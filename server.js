@@ -164,6 +164,9 @@ app.use('*', async (req, res) => {
                 continue;
             headers[key] = req.headers[key];
         }
+        //Always add the SecretKey to the headers, in case we are using a proxy
+        headers["X-SecretKey"] = process.env['TITLE_SECRET'];
+        
         let response = await axios({
             headers: headers,
             url: url,
