@@ -10,6 +10,7 @@ const { deserializeError } = require('serialize-error');
 const zlib = require('zlib');
 const { promisify } = require('util');
 const gzip = promisify(zlib.gzip);
+const playfabHttpProxy = require('./cloudscript-libs/playfab-http-proxy.js');
 let cloudscriptResponses = [];
 let pongTimeout = null;
 
@@ -42,7 +43,7 @@ catch (e) {
     process.exit();
 }
 
-const titleId = process.env['TITLE_ID'];
+const playfabEnv = playfabHttpProxy.readPlayfabEnvironment();
 let wsClient = null;
 async function startCloudscript() {
     const options = {
@@ -91,7 +92,16 @@ async function startCloudscript() {
     wsClient.once('open', async () => {
         let fileData = await fs.readFile(path.join(__dirname, 'cloudscript.js'));
         let compressed = await gzip(fileData);
-        wsClient.send(JSON.stringify({ type: 'create', auth: process.env['REMOTE_SERVER_AUTH'], titleId: process.env['TITLE_ID'], titleSecret: process.env['TITLE_SECRET'], data: compressed.toString('base64') }));
+        wsClient.send(JSON.stringify({
+            type: 'create',
+            auth: process.env['REMOTE_SERVER_AUTH'],
+            titleId: process.env['TITLE_ID'],
+            titleSecret: process.env['TITLE_SECRET'],
+            productionUrl: playfabEnv.productionUrl,
+            verticalName: playfabEnv.verticalName,
+            playfabPort: playfabEnv.port,
+            data: compressed.toString('base64')
+        }));
         pongTimeout = setTimeout(exitProgram, 120000);
         setInterval(() => {
             wsClient.send(JSON.stringify({ type: 'ping' }));
@@ -167,7 +177,7 @@ app.post('/Server/ExecuteCloudScript', executeCloudScript);
 app.use('*', async (req, res) => {
     try {
         let route = req.params[0];
-        let url = `https://${titleId}.playfabapi.com${route}`;
+        let url = `${playfabHttpProxy.getPlayfabUrl(playfabEnv)}${route}`;
         let headers = {};
         for (let key in req.headers) {
             if (key == 'host')
@@ -199,12 +209,10 @@ app.use('*', async (req, res) => {
 });
 
 async function startServer() {
-    let playfab = require('playfab-sdk');
-    playfab.settings.titleId = process.env['TITLE_ID'];
-    playfab.settings.developerSecretKey = process.env['TITLE_SECRET'];
     let port = parseInt(process.argv[2]);
     app.listen(port);
     console.log(("Server started at port: " + port + "\n").green);
+    console.log(("PlayFab API: " + playfabHttpProxy.getPlayfabUrl(playfabEnv) + "\n").cyan);
     startCloudscript();
 }
 startServer();

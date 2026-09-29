@@ -27,6 +27,14 @@ This service requires 2 environment variables:
 - `TITLE_ID` = "your project title id"  
 - `TITLE_SECRET` = "your project developer secret"  
 
+Optional PlayFab host overrides, set in the same **.env** file. They apply to CloudScript PlayFab API calls (`server`, `entity`, `economy`, `multiplayer`) and to the relay that forwards every other request to the PlayFab API. Remote mode uses the same values.
+
+- `PLAYFAB_PRODUCTION_URL` — PlayFab API base. Leave unset to use `https://{TITLE_ID}.playfabapi.com`.
+  - A full URL is used as-is: `https://playfab.example.com` or `http://127.0.0.1:3000`
+  - A host suffix is combined with the title id: `.playfabapi.com` becomes `https://{TITLE_ID}.playfabapi.com`
+- `PLAYFAB_VERTICAL_NAME` — private-cluster vertical name, used when `PLAYFAB_PRODUCTION_URL` is a host suffix
+- `PLAYFAB_PORT` — port for PlayFab calls when the URL does not already include one
+
 You can use a **.env** file in the same cloudscript project folder for setting up the environment variables. Remember to add the **.env** file to the **.gitignore** file for your repository to avoid sensitive keys leaking.
 
 ## Basic Usage

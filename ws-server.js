@@ -29,11 +29,22 @@ class CloudscriptRemoteClient {
         this.interval = null;
         this.titleId = null;
         this.titleSecret = null;
+        this.productionUrl = '';
+        this.verticalName = '';
+        this.playfabPort = '';
         this.dataBuffer = "";
         this.pingTimeout = setTimeout(this.close, 120000);
     }
     startCloudscript() {
-        this.serverInstance = spawn(process.execPath, [path.join(__dirname, 'cloudscript-remote-runner.js'), this.filename, this.titleId, this.titleSecret], {
+        this.serverInstance = spawn(process.execPath, [
+            path.join(__dirname, 'cloudscript-remote-runner.js'),
+            this.filename,
+            this.titleId,
+            this.titleSecret,
+            this.productionUrl,
+            this.verticalName,
+            this.playfabPort
+        ], {
             detached: true,
             stdio: 'pipe'
         });
@@ -93,6 +104,9 @@ class CloudscriptRemoteClient {
                     await fs.writeFile(this.filename, uncompressed);
                     this.titleId = parsed.titleId;
                     this.titleSecret = parsed.titleSecret;
+                    this.productionUrl = parsed.productionUrl ?? '';
+                    this.verticalName = parsed.verticalName ?? '';
+                    this.playfabPort = parsed.playfabPort ?? '';
                     this.startCloudscript();
                     break;
                 case 'ping':

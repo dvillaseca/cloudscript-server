@@ -8,20 +8,69 @@ const https = require('https');
 var url = require("url");
 
 
+function optionalValue(value) {
+    if (value == null)
+        return null;
+    let trimmed = String(value).trim();
+    return trimmed.length === 0 ? null : trimmed;
+}
+
 /**
- * 
- * @param {PlayFabModule.IPlayFabSettings} playfabSettings 
- * @returns 
+ * Reads the PlayFab host overrides from the cloudscript project environment.
+ * A blank value is treated as unset.
+ */
+function readPlayfabEnvironment(env) {
+    env = env ?? process.env;
+    return {
+        titleId: env['TITLE_ID'],
+        developerSecretKey: env['TITLE_SECRET'],
+        productionUrl: optionalValue(env['PLAYFAB_PRODUCTION_URL']),
+        verticalName: optionalValue(env['PLAYFAB_VERTICAL_NAME']),
+        port: optionalValue(env['PLAYFAB_PORT']),
+    };
+}
+
+function applyPlayfabSettings(playfab, settings) {
+    if (optionalValue(settings.titleId) != null)
+        playfab.settings.titleId = optionalValue(settings.titleId);
+    if (optionalValue(settings.developerSecretKey) != null)
+        playfab.settings.developerSecretKey = optionalValue(settings.developerSecretKey);
+    if (optionalValue(settings.productionUrl) != null)
+        playfab.settings.productionUrl = optionalValue(settings.productionUrl);
+    if (optionalValue(settings.port) != null)
+        playfab.settings.port = parseInt(optionalValue(settings.port), 10);
+    if (optionalValue(settings.verticalName) != null)
+        playfab.settings.verticalName = optionalValue(settings.verticalName);
+}
+
+function applyPort(url, port) {
+    if (port == null || String(port).trim() === '')
+        return url;
+    let parsed = new URL(url);
+    if (parsed.port)
+        return url;
+    parsed.port = String(port).trim();
+    let result = parsed.toString();
+    if (result.endsWith('/') && !url.endsWith('/'))
+        result = result.slice(0, -1);
+    return result;
+}
+
+/**
+ * @param {PlayFabModule.IPlayFabSettings} playfabSettings
+ * @returns {string}
  */
 function getPlayfabUrl(playfabSettings) {
-    let baseUrl = playfabSettings.productionUrl ?? `.playfabapi.com`;
+    let baseUrl = optionalValue(playfabSettings.productionUrl) ?? `.playfabapi.com`;
+    let resolved;
     if (!(baseUrl.substring(0, 4) === `http`)) {
         if (playfabSettings.verticalName)
-            return `https://${playfabSettings.verticalName}${baseUrl}`;
-        else return `https://${playfabSettings.titleId}${baseUrl}`;
+            resolved = `https://${playfabSettings.verticalName}${baseUrl}`;
+        else resolved = `https://${playfabSettings.titleId}${baseUrl}`;
+    } else {
+        resolved = baseUrl;
     }
-    return baseUrl;
-
+    return applyPort(resolved, playfabSettings.port);
 }
 
 
@@ -243,5 +292,7 @@ module.exports = {
         makeHttpRequest,
     },
     getPlayfabUrl,
+    readPlayfabEnvironment,
+    applyPlayfabSettings,
     patchPlayfabMakeRequest
 }

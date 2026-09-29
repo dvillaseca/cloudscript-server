@@ -22,10 +22,8 @@ if (process.env['TITLE_SECRET'] == null) {
     process.exit();
 }
 
-const titleId = process.env['TITLE_ID'];
-const productionUrl = process.env['PLAYFAB_PRODUCTION_URL'];
-const verticalName = process.env['PLAYFAB_VERTICAL_NAME'];
-const playfabPort = process.env['PLAYFAB_PORT'];
+const playfabEnv = playfabHttpProxy.readPlayfabEnvironment();
+const titleId = playfabEnv.titleId;
 
 
 
@@ -143,12 +141,7 @@ app.post('/Server/ExecuteCloudScript', executeCloudScript);
 app.use('*', async (req, res) => {
     try {
         let route = req.params[0];
-        let baseUrl = playfabHttpProxy.getPlayfabUrl({
-            productionUrl:productionUrl,
-            titleId:titleId,
-            verticalName:verticalName,
-            port:playfabPort,
-        })
+        let baseUrl = playfabHttpProxy.getPlayfabUrl(playfabEnv);
 
         let url = `${baseUrl}${route}`; 
 
@@ -200,25 +193,13 @@ async function setupServerEntityToken() {
 async function startServer() {
     let playfab = require('playfab-sdk');
     playfabHttpProxy.patchPlayfabMakeRequest();
-    playfab.settings.titleId = process.env['TITLE_ID'];
-    playfab.settings.developerSecretKey = process.env['TITLE_SECRET'];
-    
-     if (productionUrl != null) {
-         playfab.settings.productionUrl = productionUrl;
-     }   
-
-     if (playfabPort != null) {
-         playfab.settings.port = parseInt(playfabPort);
-     }
-
-     if (verticalName != null) {
-         playfab.settings.verticalName = verticalName;
-     }       
+    playfabHttpProxy.applyPlayfabSettings(playfab, playfabEnv);
 
     await setupServerEntityToken();
     let port = parseInt(process.argv[2]);
     app.listen(port);
     console.log(("\n🚀 Server started at port: " + port.toString().bold.underline + "\n").green);
+    console.log(("PlayFab API: " + playfabHttpProxy.getPlayfabUrl(playfabEnv) + "\n").cyan);
 
     //All errors logged inside cloudscript will be modified here
     //it will map the cloudscript.js error to the actual file and line number

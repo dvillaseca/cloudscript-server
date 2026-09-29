@@ -1,5 +1,6 @@
 const directory = process.argv[2];
 const { serializeError } = require('serialize-error');
+const playfabHttpProxy = require('./cloudscript-libs/playfab-http-proxy.js');
 require('dotenv').config({ path: require('path').join(directory, './.env') });
 
 let serverEntityTokenExpiration = null;
@@ -73,8 +74,14 @@ async function setupServerEntityToken() {
 
 async function startServer() {
     let playfab = require('playfab-sdk');
-    playfab.settings.titleId = process.argv[3];
-    playfab.settings.developerSecretKey = process.argv[4];
+    playfabHttpProxy.patchPlayfabMakeRequest();
+    playfabHttpProxy.applyPlayfabSettings(playfab, {
+        titleId: process.argv[3],
+        developerSecretKey: process.argv[4],
+        productionUrl: process.argv[5],
+        verticalName: process.argv[6],
+        port: process.argv[7],
+    });
     await setupServerEntityToken();
 }
 
